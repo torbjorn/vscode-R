@@ -203,10 +203,8 @@ export class LanguageService implements Disposable {
                     const documentSelector: DocumentFilter[] = [
                         { scheme: 'vscode-notebook-cell', language: 'r', pattern: `${document.uri.fsPath}` },
                     ];
-                    const notebookDir = dirname(document.uri.fsPath);
-                    const cwd = resolveRWorkingDirectory(Uri.file(notebookDir));
                     const client = await self.createClient(self.config, documentSelector,
-                        cwd, folder, self.outputChannel);
+                        dirname(document.uri.fsPath), folder, self.outputChannel);
                     self.clients.set(key, client);
                     self.initSet.delete(key);
                 }
@@ -257,8 +255,7 @@ export class LanguageService implements Disposable {
                         const documentSelector: DocumentFilter[] = [
                             { scheme: 'file', pattern: document.uri.fsPath },
                         ];
-                        const fileDir = dirname(document.uri.fsPath);
-                        const cwd = resolveRWorkingDirectory(Uri.file(fileDir));
+                        const cwd = dirname(document.uri.fsPath);
                         const client = await self.createClient(self.config, documentSelector,
                             cwd, undefined, self.outputChannel);
                         self.clients.set(key, client);
