@@ -40,7 +40,7 @@ Go to the installation wiki pages ([Windows](https://github.com/REditorSupport/v
 
 * [Interacting with R terminals](https://github.com/REditorSupport/vscode-R/wiki/Interacting-with-R-terminals): Sending code to terminals, running multiple terminals, working with remote servers.
 
-* **Configurable R working directory**: Run R processes from subdirectories (e.g., for renv environments) by setting `r.workingDirectory`.
+* **Smart R working directory**: Automatically detects R project structures (renv, .Rproj, packages) or use explicit `r.workingDirectory` setting.
 
 * [Package development](https://github.com/REditorSupport/vscode-R/wiki/Package-development): Build, test, install, load all and other commands from devtools.
 

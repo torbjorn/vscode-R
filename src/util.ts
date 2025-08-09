@@ -194,9 +194,135 @@ export function getCurrentWorkspaceFolder(): vscode.WorkspaceFolder | undefined 
     return undefined;
 }
 
+// Cache for detected R project directories to avoid repeated file system checks
+const rProjectDirectoryCache = new Map<string, string>();
+
 /**
- * Resolves the working directory for R processes based on the r.workingDirectory setting.
- * Falls back to workspace root if the setting is not configured.
+ * Detects the most appropriate R working directory based on project structure indicators.
+ * Uses a priority hierarchy to select the best match:
+ * 1. renv.lock files (highest priority - indicates active renv environment)
+ * 2. .Rproj files (RStudio projects)
+ * 3. DESCRIPTION files (R packages)
+ * 4. Falls back to workspace root
+ * 
+ * @param workspaceFolder - The workspace folder to scan
+ * @returns Detected R project directory path, or null if no indicators found
+ */
+function detectRProjectDirectory(workspaceFolder: vscode.WorkspaceFolder): string | null {
+    const workspacePath = workspaceFolder.uri.fsPath;
+    
+    // Check cache first
+    if (rProjectDirectoryCache.has(workspacePath)) {
+        return rProjectDirectoryCache.get(workspacePath) || null;
+    }
+    
+    let detectedPath: string | null = null;
+    
+    try {
+        // Priority 1: Look for renv.lock files with nearby R content
+        const renvLockPath = path.join(workspacePath, 'renv.lock');
+        if (fs.existsSync(renvLockPath)) {
+            // Check if this directory or subdirectories have R files
+            const hasRContent = hasRFilesInDirectory(workspacePath);
+            if (hasRContent) {
+                detectedPath = workspacePath;
+            }
+        }
+        
+        // Priority 2: Look for .Rproj files if renv detection failed
+        if (!detectedPath) {
+            const rprojFiles = findFilesInDirectory(workspacePath, '.Rproj', 2); // Max depth 2
+            if (rprojFiles.length > 0) {
+                // Use the directory containing the first .Rproj file found
+                detectedPath = path.dirname(rprojFiles[0]);
+            }
+        }
+        
+        // Priority 3: Look for DESCRIPTION files (R packages)
+        if (!detectedPath) {
+            const descriptionPath = path.join(workspacePath, 'DESCRIPTION');
+            if (fs.existsSync(descriptionPath)) {
+                // Verify it's an R package by checking for Package: field
+                try {
+                    const content = fs.readFileSync(descriptionPath, 'utf-8');
+                    if (content.includes('Package:')) {
+                        detectedPath = workspacePath;
+                    }
+                } catch (e) {
+                    // Ignore read errors
+                }
+            }
+        }
+        
+    } catch (e) {
+        // Log but don't throw - graceful degradation
+        console.warn('R project detection failed:', e);
+    }
+    
+    // Cache the result (including null)
+    rProjectDirectoryCache.set(workspacePath, detectedPath || '');
+    
+    return detectedPath;
+}
+
+/**
+ * Checks if a directory contains R files (.R, .r, .Rmd, .rmd files)
+ */
+function hasRFilesInDirectory(dirPath: string, maxDepth: number = 2): boolean {
+    try {
+        const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+        
+        for (const entry of entries) {
+            if (entry.isFile()) {
+                const ext = path.extname(entry.name).toLowerCase();
+                if (['.r', '.rmd'].includes(ext)) {
+                    return true;
+                }
+            } else if (entry.isDirectory() && maxDepth > 0) {
+                const subDirPath = path.join(dirPath, entry.name);
+                if (hasRFilesInDirectory(subDirPath, maxDepth - 1)) {
+                    return true;
+                }
+            }
+        }
+    } catch (e) {
+        // Ignore permission errors, etc.
+    }
+    
+    return false;
+}
+
+/**
+ * Finds files with specific extension in directory tree
+ */
+function findFilesInDirectory(dirPath: string, extension: string, maxDepth: number): string[] {
+    const results: string[] = [];
+    
+    try {
+        const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+        
+        for (const entry of entries) {
+            const fullPath = path.join(dirPath, entry.name);
+            
+            if (entry.isFile() && entry.name.endsWith(extension)) {
+                results.push(fullPath);
+            } else if (entry.isDirectory() && maxDepth > 0) {
+                results.push(...findFilesInDirectory(fullPath, extension, maxDepth - 1));
+            }
+        }
+    } catch (e) {
+        // Ignore permission errors, etc.
+    }
+    
+    return results;
+}
+
+/**
+ * Resolves the working directory for R processes based on configuration and smart defaults.
+ * Priority order:
+ * 1. Explicit r.workingDirectory setting (if configured and valid)
+ * 2. Auto-detected R project directory (renv.lock, .Rproj, DESCRIPTION)
+ * 3. Workspace root (fallback)
  * 
  * @param scopeUri - Optional URI to determine the configuration scope (for multi-root workspaces)
  * @returns Resolved absolute path to use as working directory for R processes
@@ -205,43 +331,48 @@ export function resolveRWorkingDirectory(scopeUri?: vscode.Uri): string {
     const config = vscode.workspace.getConfiguration('r', scopeUri);
     const workingDirectorySetting = config.get<string>('workingDirectory');
     
-    // If no custom working directory is configured, fall back to current behavior
-    if (!workingDirectorySetting || workingDirectorySetting.trim() === '') {
-        const workspaceFolder = scopeUri 
-            ? vscode.workspace.getWorkspaceFolder(scopeUri)
-            : getCurrentWorkspaceFolder();
-        return workspaceFolder ? workspaceFolder.uri.fsPath : homedir();
-    }
-    
-    // Apply variable substitution to the configured working directory
-    const resolvedPath = substituteVariables(workingDirectorySetting);
-    
-    // Validate that the resolved path exists and is within workspace boundaries
-    if (fs.existsSync(resolvedPath)) {
-        // Get the workspace folder for security validation
-        const workspaceFolder = scopeUri 
-            ? vscode.workspace.getWorkspaceFolder(scopeUri)
-            : getCurrentWorkspaceFolder();
-            
-        if (workspaceFolder) {
-            const workspaceRoot = workspaceFolder.uri.fsPath;
-            const relativePath = path.relative(workspaceRoot, resolvedPath);
-            
-            // Ensure the resolved path is within the workspace boundaries
-            if (!relativePath.startsWith('..') && !path.isAbsolute(relativePath)) {
-                return path.resolve(resolvedPath);
-            } else {
-                console.warn(`R working directory "${resolvedPath}" is outside workspace bounds. Falling back to workspace root.`);
+    // Priority 1: Use explicit configuration if provided
+    if (workingDirectorySetting && workingDirectorySetting.trim() !== '') {
+        // Apply variable substitution to the configured working directory
+        const resolvedPath = substituteVariables(workingDirectorySetting);
+        
+        // Validate that the resolved path exists and is within workspace boundaries
+        if (fs.existsSync(resolvedPath)) {
+            // Get the workspace folder for security validation
+            const workspaceFolder = scopeUri 
+                ? vscode.workspace.getWorkspaceFolder(scopeUri)
+                : getCurrentWorkspaceFolder();
+                
+            if (workspaceFolder) {
+                const workspaceRoot = workspaceFolder.uri.fsPath;
+                const relativePath = path.relative(workspaceRoot, resolvedPath);
+                
+                // Ensure the resolved path is within the workspace boundaries
+                if (!relativePath.startsWith('..') && !path.isAbsolute(relativePath)) {
+                    return path.resolve(resolvedPath);
+                } else {
+                    console.warn(`R working directory "${resolvedPath}" is outside workspace bounds. Using smart defaults.`);
+                }
             }
+        } else {
+            console.warn(`R working directory "${resolvedPath}" does not exist. Using smart defaults.`);
         }
-    } else {
-        console.warn(`R working directory "${resolvedPath}" does not exist. Falling back to workspace root.`);
     }
     
-    // Fall back to workspace root if validation fails
+    // Priority 2: Auto-detect R project directory when no valid explicit configuration
     const workspaceFolder = scopeUri 
         ? vscode.workspace.getWorkspaceFolder(scopeUri)
         : getCurrentWorkspaceFolder();
+        
+    if (workspaceFolder) {
+        const detectedPath = detectRProjectDirectory(workspaceFolder);
+        if (detectedPath && fs.existsSync(detectedPath)) {
+            console.log(`Auto-detected R project directory: ${detectedPath}`);
+            return path.resolve(detectedPath);
+        }
+    }
+    
+    // Priority 3: Fall back to workspace root
     return workspaceFolder ? workspaceFolder.uri.fsPath : homedir();
 }
 
