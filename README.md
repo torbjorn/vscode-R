@@ -20,6 +20,41 @@ This fork implements the feature requested in [issue #1634](https://github.com/R
 - Multi-language projects where R is just one component
 - Monorepos with multiple R projects
 
+### Configuration Examples
+
+Add this to your VS Code `settings.json`:
+
+```json
+{
+  "r.workingDirectory": "${workspaceFolder}/src/r-analysis"
+}
+```
+
+**Variable substitution supported:**
+- `${workspaceFolder}` - Current workspace root
+- `${userHome}` - User home directory
+- `${fileWorkspaceFolder}` - Workspace folder of currently active file
+- `${fileDirname}` - Directory of currently active file
+
+**Example configurations:**
+
+```json
+// For renv projects in subdirectories
+{
+  "r.workingDirectory": "${workspaceFolder}/analytics"
+}
+
+// For projects where R files are in a specific folder
+{
+  "r.workingDirectory": "${workspaceFolder}/src/R"
+}
+
+// Dynamic: use the directory of the current file
+{
+  "r.workingDirectory": "${fileDirname}"
+}
+```
+
 ---
 
 ## About the R Extension
