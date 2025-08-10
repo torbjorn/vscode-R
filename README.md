@@ -2,9 +2,27 @@
 
 [![Badge](https://aka.ms/vsls-badge)](https://aka.ms/vsls)
 
-**This is a fork of the [original R extension](https://github.com/REditorSupport/vscode-R) that implements configurable working directory support for R processes.**
+> [!IMPORTANT]
+> **This is a fork** of the [original R extension](https://github.com/REditorSupport/vscode-R) that adds **configurable working directory support** for R processes.
 
-This fork addresses the feature request in [issue #1634](https://github.com/REditorSupport/vscode-R/issues/1634) by adding a new `r.workingDirectory` configuration setting that allows R Language Servers and terminals to run from subdirectories instead of the workspace root. This is particularly useful for projects with R code in subfolders, renv environments, or complex project structures.
+## What's New in This Fork
+
+This fork implements the feature requested in [issue #1634](https://github.com/REditorSupport/vscode-R/issues/1634):
+
+- **New setting**: `r.workingDirectory` - Configure where R processes start
+- **Flexible project structure**: R Language Servers and terminals can run from subdirectories  
+- **renv support**: Perfect for projects with `renv.lock` files in subfolders
+- **Complex projects**: No need to restructure your entire project layout
+
+### Use Cases
+- Projects with R code in subdirectories (e.g., `src/analysis/`, `R/`)
+- renv environments not in the workspace root
+- Multi-language projects where R is just one component
+- Monorepos with multiple R projects
+
+---
+
+## About the R Extension
 
 This [VS Code](https://code.visualstudio.com/) extension provides support for the [R programming language](https://www.r-project.org), including features such as R language service based on code analysis, interacting with R terminals, viewing data, plots, workspace variables, help pages, managing packages, and working with [R Markdown](https://rmarkdown.rstudio.com/) documents.
 
