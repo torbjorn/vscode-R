@@ -1,6 +1,10 @@
-# R Extension for Visual Studio Code
+# R Extension for Visual Studio Code (Fork)
 
 [![Badge](https://aka.ms/vsls-badge)](https://aka.ms/vsls)
+
+**This is a fork of the [original R extension](https://github.com/REditorSupport/vscode-R) that implements configurable working directory support for R processes.**
+
+This fork addresses the feature request in [issue #1634](https://github.com/REditorSupport/vscode-R/issues/1634) by adding a new `r.workingDirectory` configuration setting that allows R Language Servers and terminals to run from subdirectories instead of the workspace root. This is particularly useful for projects with R code in subfolders, renv environments, or complex project structures.
 
 This [VS Code](https://code.visualstudio.com/) extension provides support for the [R programming language](https://www.r-project.org), including features such as R language service based on code analysis, interacting with R terminals, viewing data, plots, workspace variables, help pages, managing packages, and working with [R Markdown](https://rmarkdown.rstudio.com/) documents.
 
