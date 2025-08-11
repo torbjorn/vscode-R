@@ -3,7 +3,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { window } from 'vscode';
-import { getRpath, getCurrentWorkspaceFolder, executeRCommand, createTempDir } from './util';
+import { getRpath, getCurrentWorkspaceFolder, executeRCommand, createTempDir, resolveRWorkingDirectory } from './util';
 import { execSync } from 'child_process';
 import { extensionContext } from './extension';
 
@@ -46,7 +46,7 @@ async function generateCppPropertiesProc(workspaceFolder: string) {
     const cleanupFile = platformChoose('cleanup.win', 'cleanup', 'cleanup');
 
     if (fs.existsSync(path.join(workspaceFolder, configureFile))) {
-        await executeRCommand(`system("sh ./${configureFile}")`, workspaceFolder, (e: Error) => {
+        await executeRCommand(`system("sh ./${configureFile}")`, resolveRWorkingDirectory(), (e: Error) => {
             void window.showErrorMessage(e.message);
             return '';
         });
@@ -56,7 +56,7 @@ async function generateCppPropertiesProc(workspaceFolder: string) {
     const compileOutputC = collectCompilerOutput(rPath, workspaceFolder, 'c');
 
     if (fs.existsSync(path.join(workspaceFolder, cleanupFile))) {
-        await executeRCommand(`system("sh ./${cleanupFile}")`, workspaceFolder, (e: Error) => {
+        await executeRCommand(`system("sh ./${cleanupFile}")`, resolveRWorkingDirectory(), (e: Error) => {
             void window.showErrorMessage(e.message);
             return '';
         });
@@ -66,7 +66,7 @@ async function generateCppPropertiesProc(workspaceFolder: string) {
     const compileStdCpp = extractCompilerStd(compileOutputCpp);
     const compileStdC = extractCompilerStd(compileOutputC);
     const compileCall = extractCompilerCall(compileOutputCpp);
-    const compilerPath = compileCall ? await executeRCommand(`cat(Sys.which("${compileCall}"))`, workspaceFolder, (e: Error) => {
+    const compilerPath = compileCall ? await executeRCommand(`cat(Sys.which("${compileCall}"))`, resolveRWorkingDirectory(), (e: Error) => {
         void window.showErrorMessage(e.message);
         return '';
     }) : '';
@@ -119,7 +119,7 @@ async function collectRLinkingTo(workspaceFolder: string): Promise<string[]> {
     }
 
     const rScript = extensionContext.asAbsolutePath('R/cppProperties/extractLinkingTo.R').replace(/\\/g, '/');
-    const linkingToIncludesStr = (await executeRCommand(`source('${rScript}')`, workspaceFolder, (e: Error) => {
+    const linkingToIncludesStr = (await executeRCommand(`source('${rScript}')`, resolveRWorkingDirectory(), (e: Error) => {
         void window.showErrorMessage(e.message);
         return '';
     }))?.trim();

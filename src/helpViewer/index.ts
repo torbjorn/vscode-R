@@ -17,6 +17,7 @@ import {
     makeWebviewCommandUriString,
     uniqueEntries,
     isFileSafe,
+    resolveRWorkingDirectory,
 } from '../util';
 import {HelpPanel} from './panel';
 import {HelpProvider, AliasProvider} from './helpProvider';
@@ -52,10 +53,8 @@ export async function initializeHelp(
         return undefined;
     }
 
-    // get the current working directory from vscode
-    const cwd = vscode.workspace.workspaceFolders?.length
-        ? vscode.workspace.workspaceFolders[0].uri.fsPath
-        : undefined;
+    // get the configured R working directory
+    const cwd = resolveRWorkingDirectory();
 
     // get the Memento for storing cached help files (or create a dummy for this session)
     const cacheConfig = config().get<'None' | 'Workspace' | 'Global'>(
