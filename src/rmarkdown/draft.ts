@@ -1,6 +1,6 @@
 import { QuickPickItem, QuickPickOptions, Uri, window, workspace, env } from 'vscode';
 import { extensionContext } from '../extension';
-import { executeRCommand, getCurrentWorkspaceFolder, getRpath, ToRStringLiteral, spawnAsync, getConfirmation, catchAsError } from '../util';
+import { executeRCommand, getCurrentWorkspaceFolder, getRpath, ToRStringLiteral, spawnAsync, getConfirmation, catchAsError, resolveRWorkingDirectory } from '../util';
 import * as cp from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -110,7 +110,7 @@ async function makeDraft(file: string, template: TemplateItem, cwd: string): Pro
 }
 
 export async function newDraft(): Promise<void> {
-    const cwd = getCurrentWorkspaceFolder()?.uri.fsPath ?? os.homedir();
+    const cwd = resolveRWorkingDirectory() ?? os.homedir();
     const template = await launchTemplatePicker(cwd);
     if (!template) {
         return;
